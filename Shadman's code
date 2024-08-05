@@ -1,0 +1,271 @@
+import sqlite3
+import unittest
+
+# Connect to SQLite database (creates if not exists)
+conn = sqlite3.connect('assignment3.db')
+cursor = conn.cursor()
+
+# Create tables
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS Instructor (
+        ID INTEGER PRIMARY KEY,
+        FirstName TEXT NOT NULL,
+        LastName TEXT NOT NULL,
+        Title TEXT NOT NULL,
+        YearOfHire INTEGER NOT NULL,
+        Department TEXT NOT NULL,
+        Email TEXT NOT NULL
+    )
+''')
+
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS Admin (
+        ID INTEGER PRIMARY KEY,
+        FirstName TEXT NOT NULL,
+        LastName TEXT NOT NULL,
+        Title TEXT NOT NULL,
+        Office TEXT NOT NULL,
+        Email TEXT NOT NULL
+    )
+''')
+
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS Course (
+        CRN INTEGER PRIMARY KEY,
+        Title TEXT NOT NULL,
+        Department TEXT NOT NULL,
+        Time TEXT NOT NULL,
+        Days TEXT NOT NULL,
+        Semester TEXT NOT NULL,
+        Year INTEGER NOT NULL,
+        Credits INTEGER NOT NULL
+    )
+''')
+
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS StudentCourses (
+        StudentID INTEGER NOT NULL,
+        CRN INTEGER NOT NULL,
+        PRIMARY KEY (StudentID, CRN),
+        FOREIGN KEY (StudentID) REFERENCES User(ID),
+        FOREIGN KEY (CRN) REFERENCES Course(CRN)
+    )
+''')
+
+# Insert a sample course for testing
+#cursor.execute('''
+  #  INSERT OR IGNORE INTO Course (CRN, Title, Department, Time, Days, Semester, Year, Credits)
+  #  VALUES (1002, 'Physics I', 'Phy', '10:00', 'TR', 'Fall', 2023, 4)
+#''')
+
+# Insert a sample student for testing
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS User (
+        ID INTEGER PRIMARY KEY,
+        FirstName TEXT NOT NULL,
+        LastName TEXT NOT NULL
+    )
+''')
+
+cursor.execute('''
+    INSERT OR IGNORE INTO User (ID, FirstName, LastName)
+    VALUES (123, 'John', 'Doe')
+''')
+
+conn.commit()
+
+class User:
+    def __init__(self, first, last, ID):
+        self.first = first
+        self.last = last
+        self.ID = ID
+        self.logged_in = False
+        
+    def login(self):
+        self.logged_in = True
+        print("Logged In")
+    
+    def setFirst(self, first):
+        self.first = first
+    
+    def setLast(self, last):
+        self.last = last
+    
+    def setID(self, ID):
+        self.ID = ID
+    
+    def getInfo(self):
+        return f"First Name: {self.first}\nLast Name: {self.last}\nID: {self.ID}"
+
+class Student(User):
+    def __init__(self, first, last, ID):
+        super().__init__(first, last, ID)
+        
+    def AddCourse(self, crn):
+        conn = sqlite3.connect('assignment3.db')
+        cursor = conn.cursor()
+        
+        # Check if the course exists
+        cursor.execute("SELECT * FROM Course WHERE CRN=?", (crn,))
+        course = cursor.fetchone()
+        
+        if course:
+            # Add course to StudentCourses table
+            cursor.execute("INSERT OR IGNORE INTO StudentCourses (StudentID, CRN) VALUES (?, ?)", (self.ID, crn))
+            conn.commit()
+            print("Course added successfully")
+        else:
+            print("Course not found")
+        
+        conn.close()
+        
+    def RemoveCourse(self, crn):
+        conn = sqlite3.connect('assignment3.db')
+        cursor = conn.cursor()
+        
+        # Remove course from StudentCourses table
+        cursor.execute("DELETE FROM StudentCourses WHERE StudentID=? AND CRN=?", (self.ID, crn))
+        conn.commit()
+        
+        if cursor.rowcount > 0:
+            print("Course removed successfully")
+        else:
+            print("Course not found for the student")
+        
+        conn.close()
+        
+    def Print(self):
+        conn = sqlite3.connect('assignment3.db')
+        cursor = conn.cursor()
+        
+        # Get all courses for the student
+        cursor.execute("SELECT Course.* FROM Course JOIN StudentCourses ON Course.CRN = StudentCourses.CRN WHERE StudentCourses.StudentID=?", (self.ID,))
+        courses = cursor.fetchall()
+        
+        if courses:
+            print("Student's Schedule:")
+            for Course in courses:
+                print(Course)
+        else:
+            print("No courses found for the student")
+        
+        conn.close()
+
+class Instructor(User):
+    def __init__(self, first, last, ID):
+        super().__init__(first, last, ID)
+    
+    def Assemble(self):
+        print("Assemble was Successfully Used")
+        
+    def Print_roster(self):
+        conn = sqlite3.connect('assignment3.db')
+     
+        cursor = conn.cursor()
+
+        print("Print Class List was Successfully Used")
+
+class Admin(User):
+    def __init__(self, first, last, ID):
+        super().__init__(first, last, ID)
+    
+    def add_courses(self):
+        print("Add Courses was Successfully Used")
+        
+    def remove_courses(self):
+        print("Remove Courses was Successfully Used")
+
+    def add_remove_student(self):
+        print("Add/Remove Student from Course was Successfully Used")
+        
+    def roster(self):
+        print("Search/Print Roster and Courses was Successfully Used")
+
+# Test cases
+
+class TestUser(unittest.TestCase):
+    def setUp(self):
+        self.user = User("John", "Doe", "123")
+        
+    def test_initialization(self):
+        self.assertEqual(self.user.first, "John")  
+        self.assertEqual(self.user.last, "Doe")
+        self.assertEqual(self.user.ID, "123")
+        self.assertFalse(self.user.logged_in)
+
+    def test_set_first(self):
+        self.user.setFirst("Jane")
+        self.assertEqual(self.user.first, "Jane")
+        
+    def test_set_last(self):
+        self.user.setLast("Smith")
+        self.assertEqual(self.user.last, "Smith")
+        
+    def test_set_id(self):
+        self.user.setID("456")
+        self.assertEqual(self.user.ID, "456")
+        
+    def test_get_info(self):
+        self.assertEqual(self.user.getInfo(), "First Name: John\nLast Name: Doe\nID: 123")
+    
+    def test_login(self):
+        self.user.login()
+        self.assertTrue(self.user.logged_in)
+
+class TestStudent(unittest.TestCase):
+    def setUp(self):
+        self.student = Student("John", "Doe", "123")
+
+    def test_add_course(self):
+        # Assuming a course with CRN 1002 exists in the database
+        self.student.AddCourse(1002)
+        conn = sqlite3.connect('assignment3.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM StudentCourses WHERE StudentID=? AND CRN=?", (self.student.ID, 1002))
+        course = cursor.fetchone()
+        self.assertIsNotNone(course)
+        conn.close()
+
+    def test_remove_course(self):
+        self.student.RemoveCourse(1005)
+        conn = sqlite3.connect('assignment3.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM StudentCourses WHERE StudentID=? AND CRN=?", (self.student.ID, 1005))
+        course = cursor.fetchone()
+        self.assertIsNone(course)
+        conn.close()
+
+    def test_print_schedule(self):
+        self.student.Print()
+
+class TestInstructor(unittest.TestCase):
+    def setUp(self):
+        self.instructor = Instructor("Jane", "Smith", "456")
+
+    def test_assemble(self):
+        self.assertEqual(self.instructor.Assemble(), None)
+
+    def test_print_roster(self):
+        self.assertEqual(self.instructor.Print_roster(), None)
+
+class TestAdmin(unittest.TestCase):
+    def setUp(self):
+        self.admin = Admin("Alice", "Johnson", "789")
+
+    def test_add_courses(self):
+        self.assertEqual(self.admin.add_courses(), None)
+
+    def test_remove_courses(self):
+        self.assertEqual(self.admin.remove_courses(), None)
+
+    def test_add_remove_student(self):
+        self.assertEqual(self.admin.add_remove_student(), None)
+
+    def test_roster(self):
+        self.assertEqual(self.admin.roster(), None)
+        
+if __name__ == '__main__':
+    unittest.main()
+
+# Close connection after tests
+conn.close()
